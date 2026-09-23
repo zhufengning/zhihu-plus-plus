@@ -146,6 +146,7 @@ import com.github.zly2006.zhihu.platform.rememberSettingsStore
 import com.github.zly2006.zhihu.reading.rememberReadingPlayerController
 import com.github.zly2006.zhihu.reading.saveReadingPlaybackSpeed
 import com.github.zly2006.zhihu.ui.components.CompactReadingPlayerButton
+import com.github.zly2006.zhihu.ui.components.LocalPageTurnScrollReporter
 import com.github.zly2006.zhihu.ui.components.NoOpPagerNestedScrollConnection
 import com.github.zly2006.zhihu.ui.components.ReadingPlayerBar
 import com.github.zly2006.zhihu.ui.components.ReadingQueueSheet
@@ -363,6 +364,8 @@ fun ZhihuMain(
     var scrollToTopTrigger by remember { mutableIntStateOf(0) }
     // 滚动时自动隐藏底部导航栏
     var isBottomBarVisible by remember { mutableStateOf(true) }
+    // 翻页等编程式滚动不产生嵌套滚动事件，通过 reporter 同步底栏可见性
+    val pageTurnScrollReporter: (scrollForward: Boolean) -> Unit = { isBottomBarVisible = !it }
     val bottomBarScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -514,6 +517,7 @@ fun ZhihuMain(
         CompositionLocalProvider(
             LocalLifecycleOwner provides detailLifecycleOwner,
             LocalArticleNavController provides detailNavController,
+            LocalPageTurnScrollReporter provides pageTurnScrollReporter,
             LocalNavigator provides Navigator(
                 onNavigate = { destination ->
                     if (
@@ -651,6 +655,7 @@ fun ZhihuMain(
                     CompositionLocalProvider(
                         LocalLifecycleOwner provides listLifecycleOwner,
                         LocalArticleNavController provides navController,
+                        LocalPageTurnScrollReporter provides pageTurnScrollReporter,
                         LocalNavigator provides Navigator(
                             onNavigate = { destination ->
                                 if (

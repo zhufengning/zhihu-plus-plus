@@ -130,6 +130,14 @@ internal class PageTurnTargetRegistration(
 
 val LocalPageTurnDispatcher = staticCompositionLocalOf(::PageTurnDispatcher)
 
+/**
+ * Reports the scroll direction of a dispatched page turn, so UI that reacts to scroll direction
+ * (e.g. the auto-hiding bottom bar) treats page-turn input like finger scrolling. Programmatic
+ * scrolling via `ScrollableState.scroll` does not dispatch nested scroll events, so without this
+ * channel such UI never sees page turns. The argument is `true` when scrolling forward.
+ */
+val LocalPageTurnScrollReporter = staticCompositionLocalOf<(scrollForward: Boolean) -> Unit> { {} }
+
 /** Shared runtime configuration and optional guide state for targets under one dispatcher. */
 internal class PageTurnRuntimeState(
     val dispatcher: PageTurnDispatcher,
@@ -411,6 +419,7 @@ fun rememberPageTurnTarget(
 ): PageTurnTarget {
     val state = rememberPageTurnRuntimeState()
     val target = remember(state) { PageTurnTarget(state) }
+    val pageTurnScrollReporter = LocalPageTurnScrollReporter.current
     val currentOnPageUpAtStart by rememberUpdatedState(onPageUpAtStart)
     val currentOnPageDownAtEnd by rememberUpdatedState(onPageDownAtEnd)
     val currentMaxScrollValue by rememberUpdatedState(maxScrollValue)
@@ -420,6 +429,7 @@ fun rememberPageTurnTarget(
         }
     }
     PageTurnTargetRegistrationEffect(state.dispatcher, enabled && isPageTurnSupported) { command ->
+        pageTurnScrollReporter(command.scrollsForward)
         state.lastPageTurnDirection = command.scrollDirection.takeIf { state.showGuide } ?: 0
         state.pageTurnScrollInProgress = true
         try {
@@ -459,12 +469,14 @@ fun rememberPageTurnTarget(
 ): PageTurnTarget {
     val state = rememberPageTurnRuntimeState()
     val target = remember(state) { PageTurnTarget(state) }
+    val pageTurnScrollReporter = LocalPageTurnScrollReporter.current
     LaunchedEffect(state, listState) {
         snapshotFlow { listState.isScrollInProgress }.collect { scrolling ->
             if (scrolling && !state.pageTurnScrollInProgress) state.lastPageTurnDirection = 0
         }
     }
     PageTurnTargetRegistrationEffect(state.dispatcher, enabled && isPageTurnSupported) { command ->
+        pageTurnScrollReporter(command.scrollsForward)
         state.lastPageTurnDirection = command.scrollDirection.takeIf { state.showGuide } ?: 0
         state.pageTurnScrollInProgress = true
         try {
@@ -499,3 +511,6 @@ private val PageTurnCommand.scrollDirection: Int
         PageTurnCommand.JumpToBottom,
         -> 0
     }
+
+private val PageTurnCommand.scrollsForward: Boolean
+    get() = this == PageTurnCommand.PageDown || this == PageTurnCommand.JumpToBottom

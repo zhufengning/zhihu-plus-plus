@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,10 +86,14 @@ import com.github.zly2006.zhihu.test.setZhihuMainContent
 import com.github.zly2006.zhihu.theme.ThemeManager
 import com.github.zly2006.zhihu.theme.ZhihuTheme
 import com.github.zly2006.zhihu.ui.AndroidArticleNavigationHandoff
+import com.github.zly2006.zhihu.ui.AndroidZhihuMain
 import com.github.zly2006.zhihu.ui.FOLLOW_SCREEN_PAGER_TAG
 import com.github.zly2006.zhihu.ui.PREFERENCE_NAME
 import com.github.zly2006.zhihu.ui.QUESTION_SCREEN_LIST_TAG
 import com.github.zly2006.zhihu.ui.ZhihuMain
+import com.github.zly2006.zhihu.ui.components.LocalPageTurnDispatcher
+import com.github.zly2006.zhihu.ui.components.PageTurnCommand
+import com.github.zly2006.zhihu.ui.components.PageTurnDispatcher
 import com.github.zly2006.zhihu.ui.rememberAndroidZhihuMainPreferenceState
 import com.github.zly2006.zhihu.ui.subscreens.BOTTOM_BAR_ITEMS_PREFERENCE_KEY
 import com.github.zly2006.zhihu.ui.subscreens.COLLECTION_DIRECT_BROWSE_PREFERENCE_KEY
@@ -464,6 +469,52 @@ class ZhihuMainNavigationInstrumentedTest {
         composeRule.waitUntilTabSelected("nav_tab_mycollections")
         composeRule.onNodeWithTag("collection_browse_title").assertIsDisplayed()
         composeRule.onNodeWithTag("collection_screen_title").assertDoesNotExist()
+    }
+
+    /**
+     * Regression: 编程式翻页（Page Down 键、翻页悬浮按钮、音量键翻页）不触发“滚动时自动隐藏底部导航栏”，
+     * 暂无 issue。UNVERIFIED: issue/PR 链接待修复 PR 创建后补齐。
+     * 目标状态：开启 autoHideBottomBar 后，翻页命令（编程式滚动，不产生嵌套滚动事件）同样驱动
+     * 底栏隐藏/显示。红证据：移除 ZhihuMain 的 reporter 接线后底栏保持显示（waitUntil 超时）；
+     * 绿证据：PageDown 后底栏隐藏、PageUp 后恢复显示。
+     */
+    @Test
+    fun pageTurnHidesAndRevealsBottomBarWhenAutoHideEnabled() {
+        composeRule.activity
+            .getSharedPreferences(PREFERENCE_NAME, android.content.Context.MODE_PRIVATE)
+            .edit(commit = true) {
+                putString(START_DESTINATION_PREFERENCE_KEY, Home.name)
+                putStringSet(BOTTOM_BAR_ITEMS_PREFERENCE_KEY, deterministicBottomBarItems)
+                putBoolean("duo3_home_account", false)
+                putBoolean("bottomBarTapScrollToTop", false)
+                putBoolean("autoHideBottomBar", true)
+                putBoolean(COLLECTION_DIRECT_BROWSE_PREFERENCE_KEY, false)
+            }
+        val dispatcher = PageTurnDispatcher()
+        composeRule.activity.setContent { }
+        composeRule.waitForIdle()
+        composeRule.activity.setContent {
+            ZhihuTheme {
+                CompositionLocalProvider(LocalPageTurnDispatcher provides dispatcher) {
+                    AndroidZhihuMain(navController = rememberNavController())
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.waitUntilTabSelected("nav_tab_home")
+        composeRule.onNodeWithTag("nav_tab_home").assertIsDisplayed()
+
+        assertTrue(dispatcher.dispatch(PageTurnCommand.PageDown))
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithTag("nav_tab_home").fetchSemanticsNodes().isEmpty()
+        }
+
+        assertTrue(dispatcher.dispatch(PageTurnCommand.PageUp))
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithTag("nav_tab_home").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("nav_tab_home").assertIsDisplayed()
     }
 
     private fun MainActivityComposeRule.launchZhihuMain(
