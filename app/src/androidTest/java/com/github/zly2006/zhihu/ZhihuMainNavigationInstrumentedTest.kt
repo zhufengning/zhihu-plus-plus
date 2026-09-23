@@ -473,7 +473,8 @@ class ZhihuMainNavigationInstrumentedTest {
 
     /**
      * Regression: 编程式翻页（Page Down 键、翻页悬浮按钮、音量键翻页）不触发“滚动时自动隐藏底部导航栏”，
-     * 暂无 issue。UNVERIFIED: issue/PR 链接待修复 PR 创建后补齐。
+     * 暂无 issue。
+     * Fixed by: https://github.com/zly2006/zhihu-plus-plus/pull/760
      * 目标状态：开启 autoHideBottomBar 后，翻页命令（编程式滚动，不产生嵌套滚动事件）同样驱动
      * 底栏隐藏/显示。红证据：移除 ZhihuMain 的 reporter 接线后底栏保持显示（waitUntil 超时）；
      * 绿证据：PageDown 后底栏隐藏、PageUp 后恢复显示。

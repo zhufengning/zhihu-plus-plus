@@ -94,7 +94,8 @@ class PageTurnViewportInstrumentedTest {
 
     /**
      * Regression: 编程式翻页（Page Down 键、翻页悬浮按钮、音量键翻页）不触发“滚动时自动隐藏底部导航栏”，
-     * 暂无 issue。UNVERIFIED: issue/PR 链接待修复 PR 创建后补齐。
+     * 暂无 issue。
+     * Fixed by: https://github.com/zly2006/zhihu-plus-plus/pull/760
      * 目标状态：翻页命令除滚动内容外，还通过 [LocalPageTurnScrollReporter] 上报方向（向前=true），
      * 因为编程式滚动不产生嵌套滚动事件，自动隐藏底栏收不到通知。红证据：移除 reporter 调用后
      * [reports] 永远为空，waitUntil 超时；绿证据：PageDown 上报 true、PageUp 上报 false。
